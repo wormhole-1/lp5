@@ -1,0 +1,189 @@
+In the context of OpenMP parallel programming, a reduction operation is a technique used to combine results from multiple threads working on different parts of a data set into a single result. The reduction operation typically involves applying a binary operator (such as addition, multiplication, minimum, maximum, etc.) to the partial results obtained by each thread and aggregating them to produce a final result.
+
+In the provided code, reduction clauses are used in conjunction with OpenMP parallel loops to perform reduction operations.
+
+#include <bits/stdc++h>
+#include <chrono>
+#include <omp.h>
+
+using namespace std;
+
+int minSequential(int arr[], int n)
+{
+    int mini = INT_MAX;
+    for (int i = 0; i < n; i++){
+        if (arr[i] < mini){
+            mini = arr[i];
+        }
+    }
+    return mini;
+}
+
+int maxSequential(int arr[], int n)
+{
+    int maxi = INT_MIN;
+    for (int i = 0; i < n; i++){
+        if (arr[i] > maxi)
+        {
+            maxi = arr[i];
+        }
+    }
+    return maxi;
+}
+
+int sumSequential(int arr[], int n)
+{
+    int sum = 0;
+    for (int i = 0; i < n; i++){
+        sum += arr[i];
+    }
+    return sum;
+}
+
+int averageSequential(int arr[], int n)
+{
+    int sum = sumSequential(arr, n);
+    return sum / n;
+}
+
+
+//This function minParallel calculates the minimum value in the array in parallel using OpenMP. It uses a reduction clause to find the minimum value across all threads.
+//In this code snippet, #pragma omp parallel for is a directive that instructs the compiler to parallelize the following loop using OpenMP, allowing multiple threads to execute iterations of the loop concurrently.
+The reduction(min : mini) clause specifies that a reduction operation should be performed on the variable mini using the min operator. This means that each thread will have its own local copy of mini, and at the end of the parallel loop, the minimum value among all the local copies will be selected as the final result and stored in the global variable mini.
+Inside the loop, each thread independently updates its local copy of mini based on the values it encounters in its assigned range of array elements.
+After the loop completes, OpenMP combines the local copies of mini from all threads using the min operator to obtain the overall minimum value.
+
+int minParallel(int arr[], int n)
+{
+    int mini = INT_MAX;
+    #pragma omp parallel for reduction(min : mini)
+    for (int i = 0; i < n; i++){
+        if (arr[i] < mini)
+        {
+            mini = arr[i];
+        }
+    }
+    return mini;
+}
+
+//This function maxParallel calculates the maximum value in the array in parallel using OpenMP. It uses a reduction clause to find the maximum value across all threads.
+
+int maxParallel(int arr[], int n)
+{
+    int maxi = INT_MIN;
+    #pragma omp parallel for reduction(max : maxi)
+    for (int i = 0; i < n; i++){
+        if (arr[i] > maxi){
+            maxi = arr[i];
+        }
+    }
+    return maxi;
+}
+
+
+//#pragma omp parallel for indicates that the loop should be parallelized across multiple threads using OpenMP.
+reduction(+ : sum) specifies that a reduction operation should be performed on the variable sum using the + operator. This means that each thread will have its own local copy of sum, and at the end of the parallel loop, the local sums from all threads will be combined by adding them together to produce the final result.
+//Inside the loop, each thread independently updates its local copy of sum by adding the value of arr[i] to it. Since each thread has its own local copy of sum, there are no data races or contention issues.
+//After the loop completes, OpenMP combines the local sums from all threads using the + operator to obtain the overall sum of the array elements.
+
+int sumParallel(int arr[], int n)
+{
+    int sum = 0;
+    #pragma omp parallel for reduction(+ : sum)
+    for (int i = 0; i < n; i++){
+        sum += arr[i];
+    }
+    return sum;
+}
+
+int averageParallel(int arr[], int n)
+{
+    int sum = sumParallel(arr, n);
+    return sum / n;
+}
+
+int main()
+{
+    int n;
+    cout << "\nEnter total number of elements: ";
+    cin >> n;
+
+    
+    vector<int>arr(n);
+    for (int i = 0; i < n; i++){
+        arr[i] = (rand() % n);
+    }
+
+    cout << "Generated array: ";
+    for (int i = 0; i < n; i++){
+        cout << arr[i] << " ";
+    }
+    cout << endl;
+
+    // Sequential version
+    auto startSeq = chrono::steady_clock::now();
+    cout << "Sequential Min = " << minSequential(arr, n) << endl;
+    auto endSeq = chrono::steady_clock::now();
+    chrono::duration<double, micro> sqMin = endSeq - startSeq;
+    cout << "Sequential Min Time: " << sqMin.count() << " microsec" << endl;
+
+    auto startParallel = chrono::steady_clock::now();
+    cout << "Parallel Min: " << minParallel(arr, n) << endl;
+    auto endParallel = chrono::steady_clock::now();
+    chrono::duration<double, micro> parrMin = endParallel - startParallel;
+    cout << "Paralle Min Time: " << parrMin.count() << " microsec" << endl;
+    
+    cout<< "Speedup (min): "<< sqMin.count()/parrMin.count() <<endl;
+    cout<<endl;
+    
+    
+    startSeq = chrono::steady_clock::now();
+    cout << "Sequential Max = " << maxSequential(arr, n) << endl;
+    endSeq = chrono::steady_clock::now();
+    chrono::duration<double, micro> sqMax = endSeq - startSeq;
+    cout << "Sequential Max Time: " << sqMax.count() << " microsec" << endl;
+    
+    startParallel = chrono::steady_clock::now();
+    cout << "Parallel Max = " << maxParallel(arr, n) << endl;
+    endParallel = chrono::steady_clock::now();
+    chrono::duration<double, micro> parrMax = endParallel - startParallel;
+    cout << "Parallel Max Time: " << parrMax.count() << " microsecs" << endl;
+    
+    cout<< "Speedup (max): "<< sqMax.count()/parrMax.count() <<endl;
+    cout<<endl;
+    
+
+    startSeq = chrono::steady_clock::now();
+    cout << "Sequential Sum = " << sumSequential(arr, n) << endl;
+    endSeq = chrono::steady_clock::now();
+    chrono::duration<double, micro> sqSum = endSeq - startSeq;
+    cout << "Sequential Sum Time: " << sqSum.count() << " microsecs" << endl;
+    
+    startParallel = chrono::steady_clock::now();
+    cout << "Parallel Sum = " << sumParallel(arr, n) << endl;
+    endParallel = chrono::steady_clock::now();
+    chrono::duration<double, micro> parrSum = endParallel - startParallel;
+    cout << "Parallel Sum Time: " << parrSum.count() << " microsecs" << endl;
+    
+    cout<< "Speedup (Sum): "<< sqSum.count()/parrSum.count() <<endl;
+    
+    cout<<endl;
+
+    startSeq = chrono::steady_clock::now();
+    cout << "Sequential Average = " << averageSequential(arr, n) << endl;
+    endSeq = chrono::steady_clock::now();
+    chrono::duration<double, micro> sqAvg = endSeq - startSeq;
+    cout << "Sequential Average Time: " << sqAvg.count() << " microsec" << endl;
+
+    startParallel = chrono::steady_clock::now();
+    cout << "Parallel Average = " << averageParallel(arr, n) << endl;
+    endParallel = chrono::steady_clock::now();
+    chrono::duration<double, micro> parrAvg = endParallel - startParallel;
+    cout << "Parallel Average Time: " << parrAvg.count() << " microsecs" << endl;
+    
+    cout<< "Speedup (Avg): "<< sqAvg.count()/parrAvg.count() <<endl;
+
+    cout<<endl;
+    delete[] arr; // Don't forget to release the allocated memory
+    return 0;
+}

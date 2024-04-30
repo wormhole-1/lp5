@@ -1,0 +1,163 @@
+//number of threads depends on cores available because we have not explicitly mentioned how many threads to create
+
+#include<iostream>
+#include<omp.h>
+#include<bits/stdc++.h>
+using namespace std;
+
+
+void bubbleSort(int arr[],int n){
+    for(int i = 0; i < n - 1; i ++){
+        for(int j = 0; j < n - i - 1; j++){
+            if(arr[j] > arr[j+1]){
+                swap(arr[j], arr[j+1]);
+            }
+        }
+    }
+}
+
+
+//This function parallelBubbleSort implements the parallel version of the bubble sort algorithm using OpenMP. It divides the array into two halves and parallelizes the sorting process by alternating between the two halves in each iteration of the outer loop.
+
+//Here, first is an integer variable that determines whether the loop iterations should start at the index 0 or 1. The variable first is computed based on the outer loop index i in the parallelBubbleSort function.
+
+//The purpose of using first is to divide the work among threads in a way that helps avoid data dependencies and potential false sharing. By starting loop iterations at different points (either 0 or 1), adjacent iterations are less likely to access the same memory locations simultaneously, which can improve parallel performance.
+
+//For example, when first is 0, even-indexed iterations start at index 0, and odd-indexed iterations start at index 1. Conversely, when first is 1, even-indexed iterations start at index 1, and odd-indexed iterations start at index 0.
+
+void parallelBubbleSort(int a[],int n){
+    for(int i=0;i<n;i++) {       
+    	int first = i % 2;      
+	#pragma omp parallel for shared(a,first)
+        for(int j=first; j<n-1; j+=2){       
+            if(a[j]>a[j+1]){       
+                 swap(a[j],a[j+1]);
+            }        
+        }        
+    }
+
+}
+
+
+void merge(int array[],int low, int mid, int high,int size){
+    int temp[size];
+    int i = low;
+    int j = mid + 1;
+    int k = 0;
+    while((i <= mid) && (j <= high)){
+        if(array[i] >= array[j]){
+            temp[k] = array[j];
+            k++;
+            j++;
+        }
+        else{
+            temp[k] = array[i];
+            k++;
+            i++;
+        }
+    }
+    while(i <= mid){
+        temp[k] = array[i];
+        k++;
+        i++;
+    }
+    while(j <= high){
+        temp[k] = array[j];
+        k++;
+        j++;
+    }
+    k = 0;
+    for(int i = low;i <= high;i++){
+        array[i] = temp[k];
+        k++;
+    }
+}
+
+
+//The merge_sort function recursively divides the array into smaller subarrays until the base case is reached (i.e., until the subarray has only one element).
+//Within the function, OpenMP parallel sections (#pragma omp parallel sections) are used to create parallel sections, where each section corresponds to a recursive call of the merge_sort function.
+//Within each section, a recursive call to merge_sort is made to sort a subarray. These recursive calls can be executed by different threads in parallel.
+//After the two recursive calls, the merge function is called to merge the sorted subarrays together.
+
+void merge_sort(int array[],int low,int high,int size){
+    if(low < high){
+        int mid = (low + high) / 2;
+         #pragma omp parallel sections
+        {
+		#pragma omp section //this is a section which can be separately executed concurrently by threads
+		{
+			merge_sort(array,low,mid,size);
+		}
+		#pragma omp section
+		{
+			merge_sort(array,mid+1,high,size);
+		}
+	}
+        merge(array,low,mid,high,size);
+    }
+}
+
+//Within each recursive call to merge_sort, only two sections are created, each corresponding to a recursive call. These sections are executed by the existing threads in the OpenMP team, rather than creating new threads for each section.
+
+//Therefore, while there might be many recursive calls to merge_sort, the number of threads created is controlled by the OpenMP runtime and typically corresponds to the number of available processor cores or a user-defined limit.
+
+void mergeSortSequential(int arr[],int size){
+    merge_sort(arr,0,size-1,size);
+    for(int i=0; i<size; i++) cout<<arr[i]<<" ";
+    cout<<endl;
+}
+
+
+
+//This function ParallelMergeSort is a wrapper function that invokes the parallel implementation of merge sort using OpenMP. The single directive ensures that only one thread executes the merge sort function.
+//This directive ensures that the merge_sort function is executed by only one thread, and the thread executing this block does not wait for other threads to complete before proceeding. As a result, the merge_sort function is executed by a single thread in the team, and other threads are free to execute other parallel regions if present.
+
+void ParallelMergeSort(int arr[],int size){
+    
+        #pragma omp single nowait
+    	merge_sort(arr,0,size-1,size);
+   
+}
+
+
+
+
+int main(int argc, char const *argv[])
+{
+    int SIZE;
+    int MAX = 1000;
+    cout << "Enter size of array: ";
+    cin >> SIZE;
+    int array[SIZE];
+    for(int i = 0 ; i < SIZE; i ++){
+        array[i] = rand() % MAX;
+    }
+    
+    auto start = chrono::high_resolution_clock::now();
+    bubbleSort(array,SIZE);
+    auto end = chrono::high_resolution_clock::now();
+    chrono::duration<double, micro> sequential_duration = end - start;
+    cout << "Sequential Bubble Sort took : " << sequential_duration.count() << " microseconds.\n";
+
+    start = chrono::high_resolution_clock::now();
+    parallelBubbleSort(array,SIZE);
+    end = chrono::high_resolution_clock::now();
+    chrono::duration<double, micro> parallel_duration = end - start;
+    cout << "Parallel Bubble Sort took : " << parallel_duration.count() << " microseconds.\n";
+    cout<<"Speed up (Bubble sort) : "<<sequential_duration/parallel_duration<<endl;
+
+    start = chrono::high_resolution_clock::now();
+    mergeSortSequential(array,SIZE);
+    end = chrono::high_resolution_clock::now();
+    chrono::duration<double, micro> sequential_duration2 = end - start;
+    cout << "Sequential Merge Sort took : " << sequential_duration2.count() << " microseconds.\n";
+
+    start = chrono::high_resolution_clock::now();
+    ParallelMergeSort(array,SIZE);
+    end = chrono::high_resolution_clock::now();
+    chrono::duration<double, micro> parallel_duration2 = end - start;
+    cout << "Parallel Merge Sort took : " << parallel_duration2.count() << " microseconds.\n";
+    cout<<"Speed up (merge sort) : "<<sequential_duration2/parallel_duration2<<endl;
+
+    return 0;
+}
